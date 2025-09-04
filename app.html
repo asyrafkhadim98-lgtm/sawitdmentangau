@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi AgroFarm</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button { margin: 5px; padding: 8px; }
+    #data-list { margin-top: 20px; }
+    li { margin-bottom: 8px; }
+    .btn {
+      margin-left: 10px;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .padamBtn { background: red; color: white; }
+    .editBtn { background: orange; color: white; }
+    canvas { margin-top: 30px; max-width: 700px; }
+  </style>
+</head>
+<body>
+  <h1>Sistem AgroFarm 🌱</h1>
+  <button id="logoutBtn">Logout</button>
+
+  <h3>Tambah / Edit Data Ladang</h3>
+  <input type="text" id="tanaman" placeholder="Nama Tanaman">
+  <input type="number" id="hasil" placeholder="Hasil (RM)">
+  <input type="number" id="kos" placeholder="Kos (RM)">
+  <button id="simpanBtn">Simpan Data</button>
+  <button id="updateBtn" style="display:none;">Kemaskini Data</button>
+
+  <h3>Senarai Data</h3>
+  <ul id="data-list"></ul>
+
+  <h3>Graf Hasil Bulanan</h3>
+  <canvas id="grafHasil"></canvas>
+
+  <h3>Graf Perbandingan Hasil vs Kos Bulanan</h3>
+  <canvas id="grafPerbandingan"></canvas>
+
+  <h3>Graf Untung/Rugi Bulanan</h3>
+  <canvas id="grafProfit"></canvas>
+
+  <h3>Graf Jumlah Untung Terkumpul</h3>
+  <canvas id="grafCumulative"></canvas>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+    import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAgNEMESGBVTYlRjYOAArchMIMsPTa6WlM",
+      authDomain: "d-mentangau-agro-farm.firebaseapp.com",
+      databaseURL: "https://d-mentangau-agro-farm-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "d-mentangau-agro-farm",
+      storageBucket: "d-mentangau-agro-farm.firebasestorage.app",
+      messagingSenderId: "228219667513",
+      appId: "1:228219667513:web:2859dd810d8875ac5639e8",
+      measurementId: "G-ZS6MG73HC3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    let chartHasil, chartPerbandingan, chartProfit, chartCumulative;
+    let editingKey = null;
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        alert("Sila login dulu!");
+        window.location.href = "index.html";
+      } else {
+        const dataRef = ref(db, "ladang");
+
+        document.getElementById("simpanBtn").addEventListener("click", () => {
+          const tanaman = document.getElementById("tanaman").value;
+          const hasil = document.getElementById("hasil").value;
+          const kos = document.getElementById("kos").value;
+
+          if (tanaman && hasil && kos) {
+            push(dataRef, {
+              tanaman,
+              hasil: Number(hasil),
+              kos: Number(kos),
+              user: user.email,
+              tarikh: new Date().toISOString()
+            });
+            clearForm();
+          } else {
+            alert("Sila isi semua maklumat!");
+          }
+        });
+
+        document.getElementById("updateBtn").addEventListener("click", () => {
+          const tanaman = document.getElementById("tanaman").value;
+          const hasil = document.getElementById("hasil").value;
+          const kos = document.getElementById("kos").value;
+
+          if (editingKey && tanaman && hasil && kos) {
+            update(ref(db, "ladang/" + editingKey), {
+              tanaman,
+              hasil: Number(hasil),
+              kos: Number(kos),
+              tarikh: new Date().toISOString()
+            });
+            clearForm();
+            editingKey = null;
+          }
+        });
+
+        function clearForm() {
+          document.getElementById("tanaman").value = "";
+          document.getElementById("hasil").value = "";
+          document.getElementById("kos").value = "";
+          document.getElementById("simpanBtn").style.display = "inline";
+          document.getElementById("updateBtn").style.display = "none";
+        }
+
+        const dataList = document.getElementById("data-list");
+        onValue(dataRef, (snapshot) => {
+          dataList.innerHTML = "";
+
+          let monthlyHasil = {};
+          let monthlyKos = {};
+
+          snapshot.forEach((child) => {
+            const item = child.val();
+            const key = child.key;
+            const date = new Date(item.tarikh);
+            const bulan = date.toLocaleString("ms-MY", { month: "short", year: "numeric" });
+
+            const li = document.createElement("li");
+            li.textContent = `${item.tanaman} - Hasil: RM${item.hasil}, Kos: RM${item.kos} (oleh ${item.user})`;
+
+            const btnEdit = document.createElement("button");
+            btnEdit.textContent = "Edit";
+            btnEdit.classList.add("btn", "editBtn");
+            btnEdit.addEventListener("click", () => {
+              document.getElementById("tanaman").value = item.tanaman;
+              document.getElementById("hasil").value = item.hasil;
+              document.getElementById("kos").value = item.kos;
+              editingKey = key;
+              document.getElementById("simpanBtn").style.display = "none";
+              document.getElementById("updateBtn").style.display = "inline";
+            });
+
+            const btnPadam = document.createElement("button");
+            btnPadam.textContent = "Padam";
+            btnPadam.classList.add("btn", "padamBtn");
+            btnPadam.addEventListener("click", () => {
+              if (confirm("Padam data ini?")) {
+                remove(ref(db, "ladang/" + key));
+              }
+            });
+
+            li.appendChild(btnEdit);
+            li.appendChild(btnPadam);
+            dataList.appendChild(li);
+
+            if (!monthlyHasil[bulan]) monthlyHasil[bulan] = 0;
+            if (!monthlyKos[bulan]) monthlyKos[bulan] = 0;
+
+            monthlyHasil[bulan] += item.hasil;
+            monthlyKos[bulan] += item.kos;
+          });
+
+          const months = Object.keys(monthlyHasil);
+          const valuesHasil = Object.values(monthlyHasil);
+          const valuesKos = Object.values(monthlyKos);
+          const valuesProfit = months.map((m, i) => valuesHasil[i] - valuesKos[i]);
+
+          // Cumulative profit (rolling sum)
+          let cumulative = [];
+          valuesProfit.reduce((acc, val, i) => cumulative[i] = acc + val, 0);
+
+          // graf hasil
+          if (chartHasil) chartHasil.destroy();
+          chartHasil = new Chart(document.getElementById("grafHasil"), {
+            type: "bar",
+            data: { labels: months, datasets: [{ label: "Jumlah Hasil (RM)", data: valuesHasil, backgroundColor: "rgba(46,204,113,0.7)" }] },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+          });
+
+          // graf perbandingan
+          if (chartPerbandingan) chartPerbandingan.destroy();
+          chartPerbandingan = new Chart(document.getElementById("grafPerbandingan"), {
+            type: "line",
+            data: {
+              labels: months,
+              datasets: [
+                { label: "Hasil (RM)", data: valuesHasil, borderColor: "green", backgroundColor: "rgba(46,204,113,0.3)", fill: true },
+                { label: "Kos (RM)", data: valuesKos, borderColor: "red", backgroundColor: "rgba(231,76,60,0.3)", fill: true }
+              ]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+          });
+
+          // graf profit bulanan
+          if (chartProfit) chartProfit.destroy();
+          chartProfit = new Chart(document.getElementById("grafProfit"), {
+            type: "bar",
+            data: {
+              labels: months,
+              datasets: [{
+                label: "Untung/Rugi (RM)",
+                data: valuesProfit,
+                backgroundColor: valuesProfit.map(v => v >= 0 ? "rgba(39,174,96,0.7)" : "rgba(192,57,43,0.7)")
+              }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+          });
+
+          // graf cumulative profit
+          if (chartCumulative) chartCumulative.destroy();
+          chartCumulative = new Chart(document.getElementById("grafCumulative"), {
+            type: "line",
+            data: {
+              labels: months,
+              datasets: [{
+                label: "Jumlah Untung Terkumpul (RM)",
+                data: cumulative,
+                borderColor: "blue",
+                backgroundColor: "rgba(52,152,219,0.3)",
+                fill: true,
+                tension: 0.3
+              }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+          });
+        });
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "index.html");
+    });
+  </script>
+</body>
+</html>

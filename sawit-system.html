@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistem Pengurusan D'mentangau agrofarm</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;background:#f0f7ee;margin:0;padding:20px;position:relative}
+    .container{max-width:1200px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.06);overflow:hidden;position:relative}
+    header{background:linear-gradient(135deg,#2e7d32 0%,#4caf50 100%);color:#fff;padding:28px;text-align:center}
+    header h1{margin:0 0 6px;font-size:26px}
+    .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;padding:20px}
+    .card{padding:18px;border-radius:10px;border-top:4px solid #4caf50;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.04)}
+    .card h3{color:#2e7d32;margin:0 0 12px}
+    .summary-item{display:flex;justify-content:space-between;padding:6px 0}
+    .amount{font-weight:700;color:#2e7d32}
+    .negative{color:#f44336}
+    .tabs{display:flex;gap:2px;background:#e8f5e9;overflow-x:auto}
+    .tab{padding:12px 16px;cursor:pointer;background:#c8e6c9;border-right:1px solid #a5d6a7;font-weight:700}
+    .tab.active{background:#4caf50;color:#fff}
+    .tab-content{display:none;padding:22px}
+    .tab-content.active{display:block}
+    .form-group{margin-bottom:12px}
+    label{display:block;margin-bottom:6px;color:#2e7d32;font-weight:600}
+    input,select,textarea,button{font-size:16px}
+    input,select,textarea{width:100%;padding:10px;border-radius:6px;border:1px solid #dfe7de}
+    button{padding:10px 14px;border-radius:8px;border:none;background:#4caf50;color:#fff;font-weight:700;cursor:pointer}
+    button.delete-btn{background:#f44336}
+    button.export-btn{background:#2196f3}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px;border-bottom:1px solid #e9efe8;text-align:left}
+    th{background:#e8f5e9;color:#2e7d32}
+    td .edit-btn{background:#ff9800;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:14px;margin-right:4px}
+    td .delete-btn{background:#f44336;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:14px}
+    .calculator{background:#f6fbf5;border:1px solid #dfe7de;padding:12px;border-radius:8px;margin-top:12px}
+    .month-selector{display:flex;flex-wrap:wrap;gap:8px}
+    .month-checkbox{display:flex;align-items:center;gap:6px}
+    .calculator-result{background:#fff;border:1px solid #dfe7de;padding:10px;border-radius:8px;margin-top:10px}
+    .notification{position:fixed;top:14px;right:14px;padding:10px 14px;border-radius:8px;color:#fff;display:none;z-index:1000}
+    canvas{background:#fff;border-radius:8px}
+    .watermark{position:fixed;bottom:12px;right:18px;font-size:13px;color:#2e7d32;opacity:0.85;background:rgba(255,255,255,0.85);padding:6px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.08);z-index:9999}
+    @media(max-width:768px){.tabs{flex-direction:column}.tab{border-right:none;border-bottom:1px solid #a5d6a7}button{width:100%}}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Sistem Pengurusan D'mentangau agrofarm</h1>
+    </header>
+
+    <div class="dashboard">
+      <div class="card">
+        <h3>Ringkasan Kewangan</h3>
+        <div class="summary-item"><span>Jumlah Pendapatan:</span><span id="sumIncome" class="amount">RM 0.00</span></div>
+        <div class="summary-item"><span>Jumlah Perbelanjaan:</span><span id="sumExpense" class="amount negative">RM 0.00</span></div>
+        <div class="summary-item"><span>Baki Semasa:</span><span id="sumBalance" class="amount">RM 0.00</span></div>
+        <div class="summary-item"><span>Anggaran Keuntungan Bulanan:</span><span id="sumProfit" class="amount">RM 0.00</span></div>
+      </div>
+      <div class="card">
+        <h3>Rekod Pengeluaran</h3>
+        <div class="summary-item"><span>Jumlah Pokok:</span><span id="sumTrees">0 pokok</span></div>
+        <div class="summary-item"><span>Hasil Purata (tan/bln):</span><span id="sumAvgYield">0</span></div>
+        <div class="summary-item"><span>Blok Aktif:</span><span id="sumActiveBlocks">Tiada</span></div>
+        <div class="summary-item"><span>Kualiti Purata:</span><span id="sumAvgQuality">Tiada data</span></div>
+      </div>
+      <div class="card">
+        <h3>Perbelanjaan Terkini</h3>
+        <div class="summary-item"><span>Baja & Racun:</span><span id="sumCatFert" class="negative">RM 0.00</span></div>
+        <div class="summary-item"><span>Kos Buruh:</span><span id="sumCatLabor" class="negative">RM 0.00</span></div>
+        <div class="summary-item"><span>Penyelenggaraan:</span><span id="sumCatMaint" class="negative">RM 0.00</span></div>
+        <div class="summary-item"><span>Lain-lain:</span><span id="sumCatOther" class="negative">RM 0.00</span></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="cashflow">Cash Flow</div>
+      <div class="tab" data-tab="expenses">Rekod Perbelanjaan</div>
+      <div class="tab" data-tab="production">Rekod Pengeluaran</div>
+      <div class="tab" data-tab="inventory">Inventori</div>
+      <div class="tab" data-tab="maintenance">Penyelenggaraan</div>
+      <div class="tab" data-tab="reports">Laporan & Graf</div>
+    </div>
+
+    <!-- CASH FLOW -->
+    <div id="cashflow" class="tab-content active">
+      <h2>Pengurusan Cash Flow</h2>
+      <div class="form-group"><label>Tarikh</label><input type="date" id="income-date"></div>
+      <div class="form-group"><label>Keterangan</label><input type="text" id="income-description" placeholder="Contoh: Jualan buah sawit"></div>
+      <div class="form-group"><label>Jumlah (RM)</label><input type="number" id="income-amount" step="0.01" min="0"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnAddIncome">Tambah Pendapatan</button>
+        <button id="btnSaveIncome" style="background:#ff9800">Simpan (Edit)</button>
+        <button id="btnClearIncome" class="delete-btn">Kosongkan Data</button>
+        <button id="btnSeedIncome">Jana Data Contoh</button>
+        <button id="btnExportIncome" class="export-btn">Eksport ke Excel</button>
+      </div>
+
+      <table id="income-table"><thead><tr><th>Tarikh</th><th>Keterangan</th><th>Jumlah (RM)</th><th>Tindakan</th></tr></thead><tbody></tbody></table>
+
+      <div class="calculator">
+        <h3>Kira Cash Flow Mengikut Bulan</h3>
+        <div class="month-selector" id="cf-months"></div>
+        <div class="form-group"><label>Pilih Tahun</label><select id="cashflow-year"></select></div>
+        <button id="btnCalcCF">Kira Cash Flow</button>
+        <div id="cashflow-result" class="calculator-result" style="display:none">
+          <div class="summary-item"><span>Jumlah Pendapatan:</span><span id="cf-income" class="amount">RM 0.00</span></div>
+          <div class="summary-item"><span>Jumlah Perbelanjaan:</span><span id="cf-expense" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Cash Flow Bersih:</span><span id="cf-net" class="amount">RM 0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPENSES -->
+    <div id="expenses" class="tab-content">
+      <h2>Rekod Perbelanjaan</h2>
+      <div class="form-group"><label>Tarikh</label><input type="date" id="expense-date"></div>
+      <div class="form-group"><label>Kategori</label><select id="expense-category"><option value="baja">Baja & Racun</option><option value="buruh">Kos Buruh</option><option value="mesin">Penyelenggaraan Mesin</option><option value="pengangkutan">Pengangkutan</option><option value="utility">Bil Utiliti</option><option value="lain">Lain-lain</option></select></div>
+      <div class="form-group"><label>Keterangan</label><input type="text" id="expense-description" placeholder="Contoh: Beli baja NPK"></div>
+      <div class="form-group"><label>Jumlah (RM)</label><input type="number" id="expense-amount" step="0.01" min="0"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnAddExpense">Tambah Perbelanjaan</button>
+        <button id="btnSaveExpense" style="background:#ff9800">Simpan (Edit)</button>
+        <button id="btnClearExpense" class="delete-btn">Kosongkan Data</button>
+        <button id="btnSeedExpense">Jana Data Contoh</button>
+        <button id="btnExportExpense" class="export-btn">Eksport ke Excel</button>
+      </div>
+
+      <table id="expense-table"><thead><tr><th>Tarikh</th><th>Kategori</th><th>Keterangan</th><th>Jumlah (RM)</th><th>Tindakan</th></tr></thead><tbody></tbody></table>
+
+      <div class="calculator">
+        <h3>Kira Perbelanjaan Mengikut Bulan</h3>
+        <div class="month-selector" id="ex-months"></div>
+        <div class="form-group"><label>Pilih Tahun</label><select id="expense-year"></select></div>
+        <button id="btnCalcEX">Kira Perbelanjaan</button>
+        <div id="expense-result" class="calculator-result" style="display:none">
+          <div class="summary-item"><span>Jumlah Perbelanjaan:</span><span id="ex-total" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Baja & Racun:</span><span id="ex-fert" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Kos Buruh:</span><span id="ex-labor" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Penyelenggaraan:</span><span id="ex-maint" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Lain-lain:</span><span id="ex-other" class="amount negative">RM 0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTION -->
+    <div id="production" class="tab-content">
+      <h2>Rekod Pengeluaran</h2>
+      <div class="form-group"><label>Jumlah Pokok</label><input type="number" id="total-trees-input" min="0" placeholder="cth: 1200"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnUpdateTrees">Kemaskini Jumlah Pokok</button>
+        <button id="btnClearTrees" class="delete-btn">Kosongkan Data</button>
+      </div>
+
+      <div class="form-group"><label>Tarikh Tuai</label><input type="date" id="harvest-date"></div>
+      <div class="form-group"><label>Blok Ladang</label><input type="text" id="block" placeholder="cth: Blok A"></div>
+      <div class="form-group"><label>Hasil (tan)</label><input type="number" id="yield" step="0.01" min="0"></div>
+      <div class="form-group"><label>Kualiti</label><select id="quality"><option value="sangat_baik">Sangat Baik</option><option value="baik">Baik</option><option value="sederhana">Sederhana</option><option value="rendah">Rendah</option></select></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnAddProd">Tambah Rekod</button>
+        <button id="btnSaveProd" style="background:#ff9800">Simpan (Edit)</button>
+        <button id="btnClearProd" class="delete-btn">Kosongkan Data</button>
+        <button id="btnExportProd" class="export-btn">Eksport ke Excel</button>
+      </div>
+
+      <table id="production-table"><thead><tr><th>Tarikh</th><th>Blok</th><th>Hasil (tan)</th><th>Kualiti</th><th>Tindakan</th></tr></thead><tbody></tbody></table>
+
+      <div class="calculator">
+        <h3>Kira Pengeluaran Mengikut Bulan</h3>
+        <div class="month-selector" id="pr-months"></div>
+        <div class="form-group"><label>Pilih Tahun</label><select id="production-year"></select></div>
+        <button id="btnCalcPR">Kira Pengeluaran</button>
+        <div id="production-result" class="calculator-result" style="display:none">
+          <div class="summary-item"><span>Jumlah Hasil (tan):</span><span id="pr-total" class="amount">0 tan</span></div>
+          <div class="summary-item"><span>Purata Hasil (tan):</span><span id="pr-avg" class="amount">0 tan</span></div>
+          <div class="summary-item"><span>Blok Aktif:</span><span id="pr-blocks">Tiada</span></div>
+          <div class="summary-item"><span>Kualiti Purata:</span><span id="pr-quality">Tiada data</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div id="inventory" class="tab-content">
+      <h2>Inventori Ladang</h2>
+      <div class="form-group"><label>Tarikh</label><input type="date" id="inv-date"></div>
+      <div class="form-group"><label>Nama Item</label><input type="text" id="item-name" placeholder="cth: Baja NPK 15:15:15"></div>
+      <div class="form-group"><label>Kategori</label><select id="item-category"><option value="baja">Baja</option><option value="racun">Racun</option><option value="alat">Alat & Mesin</option><option value="lain">Lain-lain</option></select></div>
+      <div class="form-group"><label>Kuantiti (+ masuk, - keluar)</label><input type="number" id="quantity"></div>
+      <div class="form-group"><label>Unit</label><select id="unit"><option value="kg">kg</option><option value="liter">liter</option><option value="unit">unit</option><option value="kotak">kotak</option></select></div>
+      <div class="form-group"><label>Kos Seunit (RM)</label><input type="number" id="unit-cost" step="0.01" min="0"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnAddInv">Tambah Inventori</button>
+        <button id="btnSaveInv" style="background:#ff9800">Simpan (Edit)</button>
+        <button id="btnClearInv" class="delete-btn">Kosongkan Data</button>
+        <button id="btnExportInv" class="export-btn">Eksport ke Excel</button>
+      </div>
+
+      <table id="inventory-table"><thead><tr><th>Tarikh</th><th>Item</th><th>Kategori</th><th>Kuantiti</th><th>Unit</th><th>Kos/Unit</th><th>Jumlah Kos</th><th>Tindakan</th></tr></thead><tbody></tbody></table>
+
+      <div class="calculator">
+        <h3>Kira Pergerakan Inventori Mengikut Bulan</h3>
+        <div class="month-selector" id="in-months"></div>
+        <div class="form-group"><label>Pilih Tahun</label><select id="inventory-year"></select></div>
+        <button id="btnCalcIN">Kira Inventori</button>
+        <div id="inventory-result" class="calculator-result" style="display:none">
+          <div class="summary-item"><span>Jumlah Unit Masuk:</span><span id="in-in" class="amount">0</span></div>
+          <div class="summary-item"><span>Jumlah Unit Keluar:</span><span id="in-out" class="amount negative">0</span></div>
+          <div class="summary-item"><span>Nilai Kos (mutasi):</span><span id="in-cost" class="amount">RM 0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAINTENANCE -->
+    <div id="maintenance" class="tab-content">
+      <h2>Rekod Penyelenggaraan</h2>
+      <div class="form-group"><label>Tarikh</label><input type="date" id="mnt-date"></div>
+      <div class="form-group"><label>Jenis</label><select id="mnt-type"><option value="pokok">Penyelenggaraan Pokok</option><option value="mesin">Penyelenggaraan Mesin</option><option value="infrastruktur">Infrastruktur Ladang</option><option value="lain">Lain-lain</option></select></div>
+      <div class="form-group"><label>Keterangan</label><textarea id="mnt-desc" rows="3" placeholder="cth: Pangkas pelepah tua"></textarea></div>
+      <div class="form-group"><label>Kos (RM)</label><input type="number" id="mnt-cost" step="0.01" min="0"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="btnAddMnt">Tambah Rekod</button>
+        <button id="btnSaveMnt" style="background:#ff9800">Simpan (Edit)</button>
+        <button id="btnClearMnt" class="delete-btn">Kosongkan Data</button>
+        <button id="btnExportMnt" class="export-btn">Eksport ke Excel</button>
+      </div>
+
+      <table id="maintenance-table"><thead><tr><th>Tarikh</th><th>Jenis</th><th>Keterangan</th><th>Kos (RM)</th><th>Tindakan</th></tr></thead><tbody></tbody></table>
+
+      <div class="calculator">
+        <h3>Kira Penyelenggaraan Mengikut Bulan</h3>
+        <div class="month-selector" id="mt-months"></div>
+        <div class="form-group"><label>Pilih Tahun</label><select id="maintenance-year"></select></div>
+        <button id="btnCalcMT">Kira Penyelenggaraan</button>
+        <div id="maintenance-result" class="calculator-result" style="display:none">
+          <div class="summary-item"><span>Jumlah Kerja:</span><span id="mt-count" class="amount">0</span></div>
+          <div class="summary-item"><span>Jumlah Kos:</span><span id="mt-cost" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Pecahan Mesin:</span><span id="mt-mach" class="amount negative">RM 0.00</span></div>
+          <div class="summary-item"><span>Lain-lain:</span><span id="mt-oth" class="amount negative">RM 0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS & CHARTS -->
+    <div id="reports" class="tab-content">
+      <h2>Laporan & Graf</h2>
+      <div class="form-group"><label>Pilih Tahun Laporan</label><select id="reports-year"></select></div>
+      <button id="btnExportAll" class="export-btn">Eksport Semua Data ke Excel</button>
+      <div class="card" style="margin-bottom:12px">
+        <h3>Ringkasan Tahunan</h3>
+        <div class="summary-item"><span>Jumlah Hasil (RM):</span><span id="rep-total-income" class="amount">RM 0.00</span></div>
+        <div class="summary-item"><span>Jumlah Kos (RM):</span><span id="rep-total-expense" class="amount negative">RM 0.00</span></div>
+        <div class="summary-item"><span>Untung Bersih (RM):</span><span id="rep-net" class="amount">RM 0.00</span></div>
+        <div class="summary-item"><span>Jumlah Kutipan (tan):</span><span id="rep-total-yield" class="amount">0 tan</span></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:18px">
+        <div class="card"><h3>Aliran Tunai Bulanan</h3><canvas id="chart-cashflow" height="200"></canvas></div>
+        <div class="card"><h3>Hasil Kutipan Sawit Bulanan</h3><canvas id="chart-yield" height="200"></canvas></div>
+        <div class="card"><h3>Perbandingan Hasil vs Kos Bulanan</h3><canvas id="chart-compare" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div style="padding:20px;text-align:center">
+      <button id="btnSave">💾 Simpan Semua Data</button>
+      <button id="btnClearAll" class="delete-btn">🗑 Kosongkan Semua Data</button>
+      <button id="btnPrint" onclick="window.print()">🖨 Cetak</button>
+    </div>
+    
+    <div class="watermark">Disediakan oleh: Asyraf Khadim</div>
+  </div>
+
+  <div id="notify" class="notification"></div>
+
+  <script>
+    // ----- Storage keys & state
+    const LS = { finances:'palmOilFinances', production:'palmOilProduction', inventory:'palmOilInventory', maintenance:'palmOilMaintenance', settings:'palmOilSettings' };
+    let finances = { income:[], expenses:[] };
+    let production = [];
+    let inventory = [];
+    let maintenance = [];
+    let settings = { totalTrees:0 };
+
+    // charts
+    let chartCF = null, chartYield = null, chartComp = null;
+
+    // edit trackers
+    let editIncomeId = null, editExpenseId = null, editProductionId = null, editInventoryId = null, editMaintenanceId = null;
+
+    // helpers
+    const formatNumber = n => { if (n === null || n === undefined) return '0'; return Number(n).toLocaleString('ms-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+    const RM = n => `RM ${formatNumber(n)}`;
+    const fmtDate = d => { if(!d) return '-'; const dt=new Date(d); if(isNaN(dt)) return d; return dt.toLocaleDateString('ms-MY'); };
+    function notify(msg, ok=true){ const el=document.getElementById('notify'); el.textContent=msg; el.style.background=ok? '#4caf50':'#f44336'; el.style.display='block'; setTimeout(()=>el.style.display='none',2200); }
+
+    function monthCheckboxGroup(containerId,prefix){ const cont=document.getElementById(containerId); cont.innerHTML=''; const months=['Pilih Semua','Jan','Feb','Mac','Apr','Mei','Jun','Jul','Ogos','Sep','Okt','Nov','Dis']; months.forEach((m,i)=>{ const id=`${prefix}-m-${i}`; const wrap=document.createElement('div'); wrap.className='month-checkbox'; const inp=document.createElement('input'); inp.type='checkbox'; inp.id=id; inp.checked = true; if(i===0){ inp.addEventListener('change',()=>{ for(let j=1;j<=12;j++){ const c=document.getElementById(`${prefix}-m-${j}`); if(c) c.checked = inp.checked; } }); } else { inp.className=`${prefix}-month-check`; } const lab=document.createElement('label'); lab.htmlFor=id; lab.textContent = m; wrap.appendChild(inp); wrap.appendChild(lab); cont.appendChild(wrap); }); }
+    function selectedMonths(prefix){ const arr=[]; for(let i=1;i<=12;i++){ const c=document.getElementById(`${prefix}-m-${i}`); if(c && c.checked) arr.push(i); } return arr; }
+
+    // fixed years 2024-2045
+    function populateYearSelectFixed(id){ const sel=document.getElementById(id); let html=''; for(let y=2024;y<=2045;y++){ html += `<option value="${y}">${y}</option>`; } sel.innerHTML = html; sel.value = new Date().getFullYear()>=2024? new Date().getFullYear():2024; }
+
+    // ----- load/save
+    function loadAll(){ try{ finances = JSON.parse(localStorage.getItem(LS.finances)) || {income:[],expenses:[]}; production = JSON.parse(localStorage.getItem(LS.production)) || []; inventory = JSON.parse(localStorage.getItem(LS.inventory)) || []; maintenance = JSON.parse(localStorage.getItem(LS.maintenance)) || []; settings = JSON.parse(localStorage.getItem(LS.settings)) || { totalTrees:0 }; }catch(e){ console.warn(e); finances={income:[],expenses:[]}; production=[]; inventory=[]; maintenance=[]; settings={totalTrees:0}; } refreshAll(); }
+    function saveAll(){ localStorage.setItem(LS.finances,JSON.stringify(finances)); localStorage.setItem(LS.production,JSON.stringify(production)); localStorage.setItem(LS.inventory,JSON.stringify(inventory)); localStorage.setItem(LS.maintenance,JSON.stringify(maintenance)); localStorage.setItem(LS.settings,JSON.stringify(settings)); notify('Semua data disimpan'); }
+    function clearAll(){ if(!confirm('Kosongkan semua data?')) return; finances={income:[],expenses:[]}; production=[]; inventory=[]; maintenance=[]; settings={totalTrees:0}; Object.values(LS).forEach(k=>localStorage.removeItem(k)); refreshAll(); notify('Semua data kosong'); }
+
+    // ----- CRUD with edit support
+    function addIncome(){ const date=document.getElementById('income-date').value; const desc=document.getElementById('income-description').value.trim(); const amt=parseFloat(document.getElementById('income-amount').value); if(!date||!desc||isNaN(amt)) return notify('Sila lengkapkan maklumat', false); if(editIncomeId){ // save edit
+        const idx = finances.income.findIndex(x=>x.id===editIncomeId); if(idx>=0){ finances.income[idx].date=date; finances.income[idx].description=desc; finances.income[idx].amount=amt; editIncomeId=null; notify('Pendapatan dikemaskini'); }
+      } else {
+        finances.income.push({ id:Date.now(), date, description:desc, amount:amt }); notify('Pendapatan ditambah');
+      }
+      document.getElementById('income-description').value=''; document.getElementById('income-amount').value=''; refreshIncome(); refreshSummary(); updateReports(); }
+
+    function editIncome(id){ const rec = finances.income.find(x=>x.id===id); if(!rec) return; editIncomeId = id; document.getElementById('income-date').value = rec.date; document.getElementById('income-description').value = rec.description; document.getElementById('income-amount').value = rec.amount; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function delIncome(id){ if(!confirm('Padam rekod pendapatan?')) return; finances.income = finances.income.filter(x=>x.id!==id); refreshIncome(); refreshSummary(); updateReports(); notify('Pendapatan dipadam'); }
+
+    function addExpense(){ const date=document.getElementById('expense-date').value; const cat=document.getElementById('expense-category').value; const desc=document.getElementById('expense-description').value.trim(); const amt=parseFloat(document.getElementById('expense-amount').value); if(!date||!desc||isNaN(amt)) return notify('Sila lengkapkan maklumat', false); if(editExpenseId){ const idx = finances.expenses.findIndex(x=>x.id===editExpenseId); if(idx>=0){ finances.expenses[idx].date=date; finances.expenses[idx].category=cat; finances.expenses[idx].description=desc; finances.expenses[idx].amount=amt; editExpenseId=null; notify('Perbelanjaan dikemaskini'); } } else { finances.expenses.push({ id:Date.now(), date, category:cat, description:desc, amount:amt }); notify('Perbelanjaan ditambah'); } document.getElementById('expense-description').value=''; document.getElementById('expense-amount').value=''; refreshExpense(); refreshSummary(); updateReports(); }
+
+    function editExpense(id){ const rec = finances.expenses.find(x=>x.id===id); if(!rec) return; editExpenseId = id; document.getElementById('expense-date').value = rec.date; document.getElementById('expense-category').value = rec.category; document.getElementById('expense-description').value = rec.description; document.getElementById('expense-amount').value = rec.amount; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function delExpense(id){ if(!confirm('Padam rekod perbelanjaan?')) return; finances.expenses = finances.expenses.filter(x=>x.id!==id); refreshExpense(); refreshSummary(); updateReports(); notify('Perbelanjaan dipadam'); }
+
+    function updateTrees(){ const v=parseInt(document.getElementById('total-trees-input').value,10); settings.totalTrees = isNaN(v)?0:v; document.getElementById('total-trees-input').value = settings.totalTrees; saveAll(); refreshSummary(); updateReports(); notify('Jumlah pokok dikemaskini'); }
+
+    function addProduction(){ const date=document.getElementById('harvest-date').value; const block=document.getElementById('block').value.trim(); const y=parseFloat(document.getElementById('yield').value); const quality=document.getElementById('quality').value; if(!date||!block||isNaN(y)) return notify('Sila lengkapkan maklumat', false); if(editProductionId){ const idx = production.findIndex(x=>x.id===editProductionId); if(idx>=0){ production[idx].date=date; production[idx].block=block; production[idx].yield=y; production[idx].quality=quality; editProductionId=null; notify('Rekod pengeluaran dikemaskini'); } } else { production.push({ id:Date.now(), date, block, yield:y, quality }); notify('Rekod pengeluaran ditambah'); } document.getElementById('block').value=''; document.getElementById('yield').value=''; refreshProduction(); refreshSummary(); updateReports(); }
+
+    function editProduction(id){ const rec = production.find(x=>x.id===id); if(!rec) return; editProductionId=id; document.getElementById('harvest-date').value=rec.date; document.getElementById('block').value=rec.block; document.getElementById('yield').value=rec.yield; document.getElementById('quality').value=rec.quality; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function delProduction(id){ if(!confirm('Padam rekod pengeluaran?')) return; production = production.filter(x=>x.id!==id); refreshProduction(); refreshSummary(); updateReports(); notify('Rekod pengeluaran dipadam'); }
+
+    function addInventory(){ const date=document.getElementById('inv-date').value; const name=document.getElementById('item-name').value.trim(); const cat=document.getElementById('item-category').value; const qty=parseFloat(document.getElementById('quantity').value); const unit=document.getElementById('unit').value; const unitCost=parseFloat(document.getElementById('unit-cost').value); if(!date||!name||isNaN(qty)) return notify('Sila lengkapkan maklumat', false); const totalCost=isNaN(unitCost)?0:Math.abs(qty)*unitCost; if(editInventoryId){ const idx=inventory.findIndex(x=>x.id===editInventoryId); if(idx>=0){ inventory[idx].date=date; inventory[idx].name=name; inventory[idx].category=cat; inventory[idx].quantity=qty; inventory[idx].unit=unit; inventory[idx].unitCost=isNaN(unitCost)?null:unitCost; inventory[idx].totalCost=totalCost; editInventoryId=null; notify('Inventori dikemaskini'); } } else { inventory.push({ id:Date.now(), date, name, category:cat, quantity:qty, unit, unitCost:isNaN(unitCost)?null:unitCost, totalCost }); notify('Inventori ditambah'); } document.getElementById('item-name').value=''; document.getElementById('quantity').value=''; document.getElementById('unit-cost').value=''; refreshInventory(); updateReports(); }
+
+    function editInventory(id){ const rec = inventory.find(x=>x.id===id); if(!rec) return; editInventoryId=id; document.getElementById('inv-date').value=rec.date; document.getElementById('item-name').value=rec.name; document.getElementById('item-category').value=rec.category; document.getElementById('quantity').value=rec.quantity; document.getElementById('unit').value=rec.unit; document.getElementById('unit-cost').value=rec.unitCost||''; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function delInventory(id){ if(!confirm('Padam rekod inventori?')) return; inventory = inventory.filter(x=>x.id!==id); refreshInventory(); updateReports(); notify('Rekod inventori dipadam'); }
+
+    function addMaintenance(){ const date=document.getElementById('mnt-date').value; const type=document.getElementById('mnt-type').value; const desc=document.getElementById('mnt-desc').value.trim(); const cost=parseFloat(document.getElementById('mnt-cost').value); if(!date||!desc||isNaN(cost)) return notify('Sila lengkapkan maklumat', false); if(editMaintenanceId){ const idx=maintenance.findIndex(x=>x.id===editMaintenanceId); if(idx>=0){ maintenance[idx].date=date; maintenance[idx].type=type; maintenance[idx].description=desc; maintenance[idx].cost=cost; editMaintenanceId=null; notify('Rekod penyelenggaraan dikemaskini'); } } else { maintenance.push({ id:Date.now(), date, type, description:desc, cost }); notify('Penyelenggaraan ditambah'); } document.getElementById('mnt-desc').value=''; document.getElementById('mnt-cost').value=''; refreshMaintenance(); refreshSummary(); updateReports(); }
+
+    function editMaintenance(id){ const rec = maintenance.find(x=>x.id===id); if(!rec) return; editMaintenanceId=id; document.getElementById('mnt-date').value=rec.date; document.getElementById('mnt-type').value=rec.type; document.getElementById('mnt-desc').value=rec.description; document.getElementById('mnt-cost').value=rec.cost; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function delMaintenance(id){ if(!confirm('Padam rekod penyelenggaraan?')) return; maintenance = maintenance.filter(x=>x.id!==id); refreshMaintenance(); refreshSummary(); updateReports(); notify('Rekod penyelenggaraan dipadam'); }
+
+    // ----- Render tables with Edit buttons
+    function refreshIncome(){ const tb=document.querySelector('#income-table tbody'); tb.innerHTML=''; finances.income.slice().reverse().forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${fmtDate(r.date)}</td><td>${r.description}</td><td>${RM(r.amount)}</td><td><button class="edit-btn" onclick="editIncome(${r.id})">Edit</button><button class="delete-btn" onclick="delIncome(${r.id})">Padam</button></td>`; tb.appendChild(tr); }); }
+    function refreshExpense(){ const tb=document.querySelector('#expense-table tbody'); tb.innerHTML=''; finances.expenses.slice().reverse().forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${fmtDate(r.date)}</td><td>${getCatName(r.category)}</td><td>${r.description}</td><td>${RM(r.amount)}</td><td><button class="edit-btn" onclick="editExpense(${r.id})">Edit</button><button class="delete-btn" onclick="delExpense(${r.id})">Padam</button></td>`; tb.appendChild(tr); }); }
+    function refreshProduction(){ const tb=document.querySelector('#production-table tbody'); tb.innerHTML=''; production.slice().reverse().forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${fmtDate(r.date)}</td><td>${r.block}</td><td>${formatNumber(r.yield)}</td><td>${qName(r.quality)}</td><td><button class="edit-btn" onclick="editProduction(${r.id})">Edit</button><button class="delete-btn" onclick="delProduction(${r.id})">Padam</button></td>`; tb.appendChild(tr); }); }
+    function refreshInventory(){ const tb=document.querySelector('#inventory-table tbody'); tb.innerHTML=''; inventory.slice().reverse().forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${fmtDate(r.date)}</td><td>${r.name}</td><td>${getCatName(r.category)}</td><td>${r.quantity}</td><td>${r.unit}</td><td>${r.unitCost?RM(r.unitCost):'-'}</td><td>${r.totalCost?RM(r.totalCost):'-'}</td><td><button class="edit-btn" onclick="editInventory(${r.id})">Edit</button><button class="delete-btn" onclick="delInventory(${r.id})">Padam</button></td>`; tb.appendChild(tr); }); }
+    function refreshMaintenance(){ const tb=document.querySelector('#maintenance-table tbody'); tb.innerHTML=''; maintenance.slice().reverse().forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${fmtDate(r.date)}</td><td>${getMntTypeName(r.type)}</td><td>${r.description}</td><td>${RM(r.cost)}</td><td><button class="edit-btn" onclick="editMaintenance(${r.id})">Edit</button><button class="delete-btn" onclick="delMaintenance(${r.id})">Padam</button></td>`; tb.appendChild(tr); }); }
+
+    // ----- Summary
+    function refreshSummary(){ const totalIncome = finances.income.reduce((a,b)=>a+(b.amount||0),0); const totalExpense = finances.expenses.reduce((a,b)=>a+(b.amount||0),0); const totalTrees = settings.totalTrees||0; const totalYield = production.reduce((a,b)=>a+(b.yield||0),0); const avgYield = production.length>0?totalYield/production.length:0; const activeBlocks = [...new Set(production.map(p=>p.block))].filter(Boolean).join(', ') || 'Tiada'; const qMap = { sangat_baik:4, baik:3, sederhana:2, rendah:1 }; const qTotal = production.reduce((a,b)=>a+(qMap[b.quality]||0),0); const avgQuality = production.length>0?qTotal/production.length:0; const qNames = ['Tiada','Rendah','Sederhana','Baik','Sangat Baik']; const qName = qNames[Math.round(avgQuality)] || 'Tiada'; const fert = finances.expenses.filter(e=>e.category==='baja').reduce((a,b)=>a+(b.amount||0),0); const labor = finances.expenses.filter(e=>e.category==='buruh').reduce((a,b)=>a+(b.amount||0),0); const maint = finances.expenses.filter(e=>e.category==='mesin').reduce((a,b)=>a+(b.amount||0),0); const other = finances.expenses.filter(e=>!['baja','buruh','mesin'].includes(e.category)).reduce((a,b)=>a+(b.amount||0),0); const profit = totalIncome - totalExpense; const monthlyProfit = profit/12; document.getElementById('sumIncome').textContent = RM(totalIncome); document.getElementById('sumExpense').textContent = RM(totalExpense); document.getElementById('sumBalance').textContent = RM(totalIncome-totalExpense); document.getElementById('sumProfit').textContent = RM(monthlyProfit); document.getElementById('sumTrees').textContent = `${formatNumber(totalTrees)} pokok`; document.getElementById('sumAvgYield').textContent = formatNumber(avgYield); document.getElementById('sumActiveBlocks').textContent = activeBlocks; document.getElementById('sumAvgQuality').textContent = qName; document.getElementById('sumCatFert').textContent = RM(fert); document.getElementById('sumCatLabor').textContent = RM(labor); document.getElementById('sumCatMaint').textContent = RM(maint); document.getElementById('sumCatOther').textContent = RM(other); }
+
+    // ----- Calculators
+    function calcCashFlow(){ const year=parseInt(document.getElementById('cashflow-year').value); const months=selectedMonths('cf'); const inc = finances.income.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }).reduce((a,b)=>a+(b.amount||0),0); const exp = finances.expenses.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }).reduce((a,b)=>a+(b.amount||0),0); document.getElementById('cf-income').textContent = RM(inc); document.getElementById('cf-expense').textContent = RM(exp); document.getElementById('cf-net').textContent = RM(inc-exp); document.getElementById('cashflow-result').style.display='block'; }
+    function calcExpense(){ const year=parseInt(document.getElementById('expense-year').value); const months=selectedMonths('ex'); const exp = finances.expenses.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }); const total = exp.reduce((a,b)=>a+(b.amount||0),0); const fert = exp.filter(e=>e.category==='baja').reduce((a,b)=>a+(b.amount||0),0); const labor = exp.filter(e=>e.category==='buruh').reduce((a,b)=>a+(b.amount||0),0); const maint = exp.filter(e=>e.category==='mesin').reduce((a,b)=>a+(b.amount||0),0); const other = exp.filter(e=>!['baja','buruh','mesin'].includes(e.category)).reduce((a,b)=>a+(b.amount||0),0); document.getElementById('ex-total').textContent = RM(total); document.getElementById('ex-fert').textContent = RM(fert); document.getElementById('ex-labor').textContent = RM(labor); document.getElementById('ex-maint').textContent = RM(maint); document.getElementById('ex-other').textContent = RM(other); document.getElementById('expense-result').style.display='block'; }
+    function calcProduction(){ const year=parseInt(document.getElementById('production-year').value); const months=selectedMonths('pr'); const prod = production.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }); const total = prod.reduce((a,b)=>a+(b.yield||0),0); const avg = prod.length>0?total/prod.length:0; const blocks = [...new Set(prod.map(p=>p.block))].filter(b=>b).join(', ') || 'Tiada'; const qMap = { sangat_baik:4, baik:3, sederhana:2, rendah:1 }; const qTotal = prod.reduce((a,b)=>a+(qMap[b.quality]||0),0); const qAvg = prod.length>0?qTotal/prod.length:0; const qNames = ['Tiada','Rendah','Sederhana','Baik','Sangat Baik']; const qName = qNames[Math.round(qAvg)] || 'Tiada'; document.getElementById('pr-total').textContent = `${formatNumber(total)} tan`; document.getElementById('pr-avg').textContent = `${formatNumber(avg)} tan`; document.getElementById('pr-blocks').textContent = blocks; document.getElementById('pr-quality').textContent = qName; document.getElementById('production-result').style.display='block'; }
+    function calcInventory(){ const year=parseInt(document.getElementById('inventory-year').value); const months=selectedMonths('in'); const inv = inventory.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }); const inQty = inv.filter(i=>i.quantity>0).reduce((a,b)=>a+(b.quantity||0),0); const outQty = inv.filter(i=>i.quantity<0).reduce((a,b)=>a+Math.abs(b.quantity||0),0); const cost = inv.reduce((a,b)=>a+(b.totalCost||0),0); document.getElementById('in-in').textContent = formatNumber(inQty); document.getElementById('in-out').textContent = formatNumber(outQty); document.getElementById('in-cost').textContent = RM(cost); document.getElementById('inventory-result').style.display='block'; }
+    function calcMaintenance(){ const year=parseInt(document.getElementById('maintenance-year').value); const months=selectedMonths('mt'); const mnt = maintenance.filter(r=>{ const d=new Date(r.date); return d.getFullYear()===year && months.includes(d.getMonth()+1); }); const total = mnt.reduce((a,b)=>a+(b.cost||0),0); const mach = mnt.filter(m=>m.type==='mesin').reduce((a,b)=>a+(b.cost||0),0); const oth = mnt.filter(m=>m.type!=='mesin').reduce((a,b)=>a+(b.cost||0),0); document.getElementById('mt-count').textContent = mnt.length; document.getElementById('mt-cost').textContent = RM(total); document.getElementById('mt-mach').textContent = RM(mach); document.getElementById('mt-oth').textContent = RM(oth); document.getElementById('maintenance-result').style.display='block'; }
+
+    // ----- Reports & Charts
+    function updateReports(){ const year = parseInt(document.getElementById('reports-year').value); const inc = finances.income.filter(r=>new Date(r.date).getFullYear()===year).reduce((a,b)=>a+(b.amount||0),0); const exp = finances.expenses.filter(r=>new Date(r.date).getFullYear()===year).reduce((a,b)=>a+(b.amount||0),0); const yld = production.filter(r=>new Date(r.date).getFullYear()===year).reduce((a,b)=>a+(b.yield||0),0); document.getElementById('rep-total-income').textContent = RM(inc); document.getElementById('rep-total-expense').textContent = RM(exp); document.getElementById('rep-net').textContent = RM(inc-exp); document.getElementById('rep-total-yield').textContent = `${formatNumber(yld)} tan`; updateCharts(year); }
+
+    function updateCharts(year){ const months = ['Jan','Feb','Mac','Apr','Mei','Jun','Jul','Ogos','Sep','Okt','Nov','Dis']; const incData = Array(12).fill(0); const expData = Array(12).fill(0); const yldData = Array(12).fill(0); finances.income.forEach(r=>{ const d=new Date(r.date); if(d.getFullYear()===year) incData[d.getMonth()] += (r.amount||0); }); finances.expenses.forEach(r=>{ const d=new Date(r.date); if(d.getFullYear()===year) expData[d.getMonth()] += (r.amount||0); }); production.forEach(r=>{ const d=new Date(r.date); if(d.getFullYear()===year) yldData[d.getMonth()] += (r.yield||0); }); if(chartCF) chartCF.destroy(); chartCF = new Chart(document.getElementById('chart-cashflow').getContext('2d'),{ type:'line', data:{ labels:months, datasets:[{label:'Pendapatan', data:incData, borderColor:'#4caf50', backgroundColor:'rgba(76,175,80,0.1)'}, {label:'Perbelanjaan', data:expData, borderColor:'#f44336', backgroundColor:'rgba(244,67,54,0.1)'}] }, options:{ responsive:true, plugins:{title:{display:true,text:'Aliran Tunai Bulanan'}}, scales:{y:{beginAtZero:true, ticks:{callback:value=>RM(value)}} } } }); if(chartYield) chartYield.destroy(); chartYield = new Chart(document.getElementById('chart-yield').getContext('2d'),{ type:'bar', data:{ labels:months, datasets:[{label:'Hasil (tan)', data:yldData, backgroundColor:'rgba(255,193,7,0.7)'}] }, options:{ responsive:true, plugins:{title:{display:true,text:'Hasil Kutipan Sawit Bulanan'}}, scales:{y:{beginAtZero:true}} } }); if(chartComp) chartComp.destroy(); chartComp = new Chart(document.getElementById('chart-compare').getContext('2d'),{ type:'bar', data:{ labels:months, datasets:[{label:'Pendapatan', data:incData, backgroundColor:'rgba(76,175,80,0.7)'}, {label:'Perbelanjaan', data:expData, backgroundColor:'rgba(244,67,54,0.7)'}] }, options:{ responsive:true, plugins:{title:{display:true,text:'Perbandingan Hasil vs Kos Bulanan'}}, scales:{y:{beginAtZero:true, ticks:{callback:value=>RM(value)}} } } }); }
+
+    // ----- Export to Excel (per-tab and all)
+    function exportToExcel(data, filename, sheetName){ const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, sheetName); XLSX.writeFile(wb, filename); }
+    function exportIncomeExcel(){ const data = finances.income.map(item=>({Tarikh:fmtDate(item.date),Keterangan:item.description,'Jumlah (RM)':item.amount})); exportToExcel(data,'pendapatan.xlsx','Pendapatan'); notify('Data pendapatan dieksport'); }
+    function exportExpenseExcel(){ const data = finances.expenses.map(item=>({Tarikh:fmtDate(item.date),Kategori:getCatName(item.category),Keterangan:item.description,'Jumlah (RM)':item.amount})); exportToExcel(data,'perbelanjaan.xlsx','Perbelanjaan'); notify('Data perbelanjaan dieksport'); }
+    function exportProductionExcel(){ const data = production.map(item=>({Tarikh:fmtDate(item.date),Blok:item.block,'Hasil (tan)':item.yield,Kualiti:qName(item.quality)})); exportToExcel(data,'pengeluaran.xlsx','Pengeluaran'); notify('Data pengeluaran dieksport'); }
+    function exportInventoryExcel(){ const data = inventory.map(item=>({Tarikh:fmtDate(item.date),Item:item.name,Kategori:getCatName(item.category),Kuantiti:item.quantity,Unit:item.unit,'Kos/Unit':item.unitCost,'Jumlah Kos':item.totalCost})); exportToExcel(data,'inventori.xlsx','Inventori'); notify('Data inventori dieksport'); }
+    function exportMaintenanceExcel(){ const data = maintenance.map(item=>({Tarikh:fmtDate(item.date),Jenis:getMntTypeName(item.type),Keterangan:item.description,'Kos (RM)':item.cost})); exportToExcel(data,'penyelenggaraan.xlsx','Penyelenggaraan'); notify('Data penyelenggaraan dieksport'); }
+    function exportAllExcel(){ const wb = XLSX.utils.book_new(); const incomeData = finances.income.map(i=>({Tarikh:fmtDate(i.date),Keterangan:i.description,'Jumlah (RM)':i.amount})); const ws1 = XLSX.utils.json_to_sheet(incomeData); XLSX.utils.book_append_sheet(wb,ws1,'Pendapatan'); const expenseData = finances.expenses.map(i=>({Tarikh:fmtDate(i.date),Kategori:getCatName(i.category),Keterangan:i.description,'Jumlah (RM)':i.amount})); const ws2 = XLSX.utils.json_to_sheet(expenseData); XLSX.utils.book_append_sheet(wb,ws2,'Perbelanjaan'); const prodData = production.map(i=>({Tarikh:fmtDate(i.date),Blok:i.block,'Hasil (tan)':i.yield,Kualiti:qName(i.quality)})); const ws3 = XLSX.utils.json_to_sheet(prodData); XLSX.utils.book_append_sheet(wb,ws3,'Pengeluaran'); const invData = inventory.map(i=>({Tarikh:fmtDate(i.date),Item:i.name,Kategori:getCatName(i.category),Kuantiti:i.quantity,Unit:i.unit,'Kos/Unit':i.unitCost,'Jumlah Kos':i.totalCost})); const ws4 = XLSX.utils.json_to_sheet(invData); XLSX.utils.book_append_sheet(wb,ws4,'Inventori'); const mntData = maintenance.map(i=>({Tarikh:fmtDate(i.date),Jenis:getMntTypeName(i.type),Keterangan:i.description,'Kos (RM)':i.cost})); const ws5 = XLSX.utils.json_to_sheet(mntData); XLSX.utils.book_append_sheet(wb,ws5,'Penyelenggaraan'); XLSX.writeFile(wb,'semua_data_ladang.xlsx'); notify('Semua data dieksport'); }
+
+    // ----- Helpers
+    function getCatName(cat){ const map={ baja:'Baja & Racun', buruh:'Kos Buruh', mesin:'Penyelenggaraan Mesin', pengangkutan:'Pengangkutan', utility:'Bil Utiliti', lain:'Lain-lain' }; return map[cat]||cat; }
+    function getMntTypeName(type){ const map={ pokok:'Penyelenggaraan Pokok', mesin:'Penyelenggaraan Mesin', infrastruktur:'Infrastruktur Ladang', lain:'Lain-lain' }; return map[type]||type; }
+    function qName(q){ const map={ sangat_baik:'Sangat Baik', baik:'Baik', sederhana:'Sederhana', rendah:'Rendah' }; return map[q]||q; }
+
+    // ----- Seed
+    function seedIncome(){ const now=new Date(); for(let i=0;i<6;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,15); finances.income.push({ id:Date.now()+i, date:d.toISOString().split('T')[0], description:`Jualan buah sawit bulan ${d.toLocaleDateString('ms-MY',{month:'long'})}`, amount:Math.round(Math.random()*5000+5000) }); } refreshIncome(); refreshSummary(); updateReports(); notify('Data contoh pendapatan ditambah'); }
+    function seedExpense(){ const now=new Date(); const cats=['baja','buruh','mesin','pengangkutan','utility','lain']; for(let i=0;i<6;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,10); finances.expenses.push({ id:Date.now()+i, date:d.toISOString().split('T')[0], category:cats[i%cats.length], description:`Perbelanjaan ${getCatName(cats[i%cats.length])} ${d.toLocaleDateString('ms-MY',{month:'long'})}`, amount:Math.round(Math.random()*2000+500) }); } refreshExpense(); refreshSummary(); updateReports(); notify('Data contoh perbelanjaan ditambah'); }
+    
+    // Fungsi seedData yang baru ditambah
+    function seedData() {
+      seedIncome();
+      seedExpense();
+      
+      // Seed production data
+      const now = new Date();
+      const blocks = ['Blok A', 'Blok B', 'Blok C', 'Blok D'];
+      const qualities = ['sangat_baik', 'baik', 'sederhana', 'rendah'];
+      
+      for (let i = 0; i < 8; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 20);
+        production.push({
+          id: Date.now() + i,
+          date: d.toISOString().split('T')[0],
+          block: blocks[i % blocks.length],
+          yield: Math.round(Math.random() * 50 + 30),
+          quality: qualities[i % qualities.length]
+        });
+      }
+      
+      // Seed inventory data
+      const items = [
+        {name: 'Baja NPK 15:15:15', category: 'baja', unit: 'kg'},
+        {name: 'Racun Kulat', category: 'racun', unit: 'liter'},
+        {name: 'Pisau Tuai', category: 'alat', unit: 'unit'},
+        {name: 'Sarung Tangan', category: 'alat', unit: 'pasang'}
+      ];
+      
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 5);
+        const item = items[i % items.length];
+        inventory.push({
+          id: Date.now() + i,
+          date: d.toISOString().split('T')[0],
+          name: item.name,
+          category: item.category,
+          quantity: Math.round(Math.random() * 100 + 50),
+          unit: item.unit,
+          unitCost: Math.round(Math.random() * 20 + 5),
+          totalCost: 0
+        });
+      }
+      
+      // Seed maintenance data
+      const mntTypes = ['pokok', 'mesin', 'infrastruktur', 'lain'];
+      const mntDescriptions = [
+        'Pangkas pelepah tua',
+        'Servis jentra tuai',
+        'Baiki jalan ladang',
+        'Membaja pokok',
+        'Menyembur racun',
+        'Membaiki parit'
+      ];
+      
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 12);
+        maintenance.push({
+          id: Date.now() + i,
+          date: d.toISOString().split('T')[0],
+          type: mntTypes[i % mntTypes.length],
+          description: mntDescriptions[i % mntDescriptions.length],
+          cost: Math.round(Math.random() * 500 + 200)
+        });
+      }
+      
+      // Set total trees
+      settings.totalTrees = 2500;
+      
+      notify('Data contoh telah dijana');
+      refreshAll();
+    }
+
+    // ----- Clear per-tab data
+    function clearIncomeData(){ if(!confirm('Kosongkan semua rekod pendapatan?')) return; finances.income=[]; refreshIncome(); refreshSummary(); updateReports(); saveAll(); notify('Semua rekod pendapatan dikosongkan'); }
+    function clearExpenseData(){ if(!confirm('Kosongkan semua rekod perbelanjaan?')) return; finances.expenses=[]; refreshExpense(); refreshSummary(); updateReports(); saveAll(); notify('Semua rekod perbelanjaan dikosongkan'); }
+    function clearProductionData(){ if(!confirm('Kosongkan semua rekod pengeluaran?')) return; production=[]; refreshProduction(); refreshSummary(); updateReports(); saveAll(); notify('Semua rekod pengeluaran dikosongkan'); }
+    function clearInventoryData(){ if(!confirm('Kosongkan semua rekod inventori?')) return; inventory=[]; refreshInventory(); updateReports(); saveAll(); notify('Semua rekod inventori dikosongkan'); }
+    function clearMaintenanceData(){ if(!confirm('Kosongkan semua rekod penyelenggaraan?')) return; maintenance=[]; refreshMaintenance(); refreshSummary(); updateReports(); saveAll(); notify('Semua rekod penyelenggaraan dikosongkan'); }
+
+    // ----- Refresh all
+    function refreshAll(){ refreshIncome(); refreshExpense(); refreshProduction(); refreshInventory(); refreshMaintenance(); refreshSummary(); monthCheckboxGroup('cf-months','cf'); monthCheckboxGroup('ex-months','ex'); monthCheckboxGroup('pr-months','pr'); monthCheckboxGroup('in-months','in'); monthCheckboxGroup('mt-months','mt'); ['cashflow-year','expense-year','production-year','inventory-year','maintenance-year','reports-year'].forEach(id=>populateYearSelectFixed(id)); updateReports(); }
+
+    // ----- Event listeners
+    function setupListeners(){ 
+      document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{ 
+        document.querySelectorAll('.tab').forEach(t2=>t2.classList.remove('active')); 
+        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); 
+        t.classList.add('active'); 
+        document.getElementById(t.dataset.tab).classList.add('active'); 
+        if(t.dataset.tab==='reports'){ updateReports(); } 
+      }));
+      
+      document.getElementById('btnAddIncome').addEventListener('click',addIncome); 
+      document.getElementById('btnSaveIncome').addEventListener('click',()=>{ if(editIncomeId){ addIncome(); } else notify('Tiada rekod untuk disimpan (edit)',false); }); 
+      document.getElementById('btnClearIncome').addEventListener('click',clearIncomeData); 
+      document.getElementById('btnSeedIncome').addEventListener('click',seedIncome); 
+      document.getElementById('btnExportIncome').addEventListener('click',exportIncomeExcel);
+      
+      document.getElementById('btnAddExpense').addEventListener('click',addExpense); 
+      document.getElementById('btnSaveExpense').addEventListener('click',()=>{ if(editExpenseId){ addExpense(); } else notify('Tiada rekod untuk disimpan (edit)',false); }); 
+      document.getElementById('btnClearExpense').addEventListener('click',clearExpenseData); 
+      document.getElementById('btnSeedExpense').addEventListener('click',seedExpense); 
+      document.getElementById('btnExportExpense').addEventListener('click',exportExpenseExcel);
+      
+      document.getElementById('btnUpdateTrees').addEventListener('click',updateTrees); 
+      document.getElementById('btnClearTrees').addEventListener('click',clearProductionData);
+      
+      document.getElementById('btnAddProd').addEventListener('click',addProduction); 
+      document.getElementById('btnSaveProd').addEventListener('click',()=>{ if(editProductionId){ addProduction(); } else notify('Tiada rekod untuk disimpan (edit)',false); }); 
+      document.getElementById('btnClearProd').addEventListener('click',clearProductionData); 
+      document.getElementById('btnExportProd').addEventListener('click',exportProductionExcel);
+      
+      document.getElementById('btnAddInv').addEventListener('click',addInventory); 
+      document.getElementById('btnSaveInv').addEventListener('click',()=>{ if(editInventoryId){ addInventory(); } else notify('Tiada rekod untuk disimpan (edit)',false); }); 
+      document.getElementById('btnClearInv').addEventListener('click',clearInventoryData); 
+      document.getElementById('btnExportInv').addEventListener('click',exportInventoryExcel);
+      
+      document.getElementById('btnAddMnt').addEventListener('click',addMaintenance); 
+      document.getElementById('btnSaveMnt').addEventListener('click',()=>{ if(editMaintenanceId){ addMaintenance(); } else notify('Tiada rekod untuk disimpan (edit)',false); }); 
+      document.getElementById('btnClearMnt').addEventListener('click',clearMaintenanceData); 
+      document.getElementById('btnExportMnt').addEventListener('click',exportMaintenanceExcel);
+      
+      document.getElementById('btnExportAll').addEventListener('click',exportAllExcel); 
+      document.getElementById('btnSave').addEventListener('click',saveAll); 
+      document.getElementById('btnClearAll').addEventListener('click',clearAll); 
+      document.getElementById('btnCalcCF').addEventListener('click',calcCashFlow); 
+      document.getElementById('btnCalcEX').addEventListener('click',calcExpense); 
+      document.getElementById('btnCalcPR').addEventListener('click',calcProduction); 
+      document.getElementById('btnCalcIN').addEventListener('click',calcInventory); 
+      document.getElementById('btnCalcMT').addEventListener('click',calcMaintenance); 
+      document.getElementById('reports-year').addEventListener('change',updateReports);
+    }
+
+    // ----- Initialize
+    window.onload = function(){ 
+      loadAll(); 
+      setupListeners(); 
+      document.getElementById('income-date').valueAsDate = new Date(); 
+      document.getElementById('expense-date').valueAsDate = new Date(); 
+      document.getElementById('harvest-date').valueAsDate = new Date(); 
+      document.getElementById('inv-date').valueAsDate = new Date(); 
+      document.getElementById('mnt-date').valueAsDate = new Date(); 
+    };
+  </script>
+</body>
+</html>
